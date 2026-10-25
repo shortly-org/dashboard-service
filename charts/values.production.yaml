@@ -1,0 +1,58 @@
+datadog:
+  metrics: ["shortly_.*", "http_server_requests.*", "jvm_.*", "hikaricp_.*", "kafka_.*"]
+
+ports:
+  http: 8081
+  management: 8082
+
+ingress:
+  host: dashboard.shortly.internal
+  className: alb-internal
+
+replicas:
+  min: 2
+  max: 3
+targetCpu: 70
+minAvailable: 1
+
+resources:
+  requests: { cpu: 500m, memory: 1Gi }
+  limits: { cpu: "1", memory: 1Gi }
+
+tolerations:
+  - { key: node.kubernetes.io/unreachable, operator: Exists, effect: NoExecute, tolerationSeconds: 30 }
+  - { key: node.kubernetes.io/not-ready, operator: Exists, effect: NoExecute, tolerationSeconds: 30 }
+
+zoneSpread:
+  whenUnsatisfiable: DoNotSchedule
+
+egressPorts: [443, 5432, 9096]
+
+env:
+  DATABASE_HOST: shortly-production-writer.shortly.internal
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: shortly
+  DATABASE_CONN_PARAMS: "?sslmode=verify-full&sslrootcert=/etc/ssl/rds/global-bundle.pem"
+  KAFKA_SECURITY_PROTOCOL: SASL_SSL
+  KAFKA_SASL_MECHANISM: SCRAM-SHA-512
+  KEYCLOAK_SERVER_URL: https://login.shortly.internal
+  KEYCLOAK_REALM: shortly
+  SHORTLY_SHORT_BASE_URL: https://shortly.internal/
+
+externalSecrets:
+  secrets:
+    - name: database
+      remoteKey: shortly/production/dashboard-service/database
+      items:
+        - { env: DATABASE_USER, property: username }
+        - { env: DATABASE_PASSWORD, property: password }
+    - name: database-migration
+      remoteKey: shortly/production/dashboard-service/database-migration
+      items:
+        - { env: DATABASE_MIGRATION_USER, property: username }
+        - { env: DATABASE_MIGRATION_PASSWORD, property: password }
+    - name: kafka
+      remoteKey: shortly/production/dashboard-service/kafka
+      items:
+        - { env: KAFKA_BOOTSTRAP_SERVERS, property: bootstrap_servers }
+        - { env: KAFKA_SASL_JAAS_CONFIG, property: jaas_config }

@@ -1,0 +1,65 @@
+spring:
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    security:
+      protocol: ${KAFKA_SECURITY_PROTOCOL:PLAINTEXT}
+    properties:
+      sasl.mechanism: ${KAFKA_SASL_MECHANISM:PLAIN}
+      sasl.jaas.config: ${KAFKA_SASL_JAAS_CONFIG:}
+    consumer:
+      group-id: shortly-stats
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      auto-offset-reset: earliest
+      max-poll-records: 500
+      properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+        spring.json.value.default.type: io.shortly.dashboard.model.ClickEvent
+        spring.json.use.type.headers: false
+    listener:
+      type: batch
+      auth-exception-retry-interval: 10s
+  application:
+    name: dashboard-service
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: jdbc:postgresql://${DATABASE_HOST:localhost}:${DATABASE_PORT:5432}/${DATABASE_NAME:shortly}${DATABASE_CONN_PARAMS:}
+    username: ${DATABASE_USER:dashboard_app}
+    password: ${DATABASE_PASSWORD:dashboard_app}
+    hikari:
+      connection-timeout: 3000
+      connection-init-sql: SET transaction_timeout = '2s'
+      data-source-properties:
+        socketTimeout: 5
+  flyway:
+    user: ${DATABASE_MIGRATION_USER:dashboard_owner}
+    password: ${DATABASE_MIGRATION_PASSWORD:dashboard_owner}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_SERVER_URL:http://localhost:8083}/realms/${KEYCLOAK_REALM:shortly}
+          jwk-set-uri: ${KEYCLOAK_INTERNAL_URL:${KEYCLOAK_SERVER_URL:http://localhost:8083}}/realms/${KEYCLOAK_REALM:shortly}/protocol/openid-connect/certs
+          audiences: dashboard-service
+
+springdoc:
+  swagger-ui:
+    oauth:
+      client-id: shortly-dashboard
+      use-pkce-with-authorization-code-grant: true
+
+management:
+  server:
+    port: 8082
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+shortly:
+  short-base-url: ${SHORTLY_SHORT_BASE_URL:http://localhost:8080/}
